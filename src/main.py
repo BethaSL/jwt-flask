@@ -9,6 +9,7 @@ from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
 from models import db, User
+from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
 #from models import Person
 
 app = Flask(__name__)
@@ -38,6 +39,33 @@ def handle_hello():
     }
 
     return jsonify(response_body), 200
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    body = request.json
+    new_user = User.register(body)
+
+    if new_user is not None:
+        try:
+            token = create_access_token(identity = new_user.id)
+            return jsonify({"token": token, "user_id": new_user.id, "email": new_user.email}), 201
+        except Exception as error:
+            return jsonify({"message": "Oh no! You have a mistake, please check your info"}), 500
+    else:
+        jsonify({"message": "Please try again"}), 500
+
+@app.route('/signin', methods=['POST'])
+def signin():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+    user = User.query.filter_by(email = email, password = password).one_or_none()
+
+        if user is not None:
+        token = create_access_token(identity = user.id)
+        return jsonify({"token": token, "user_id": user.id, "email": user.email}), 200
+    else:
+        return jsonify({"message": "Oh no! Bad credentials, please check them"}), 401
+
 
 # this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':
